@@ -1,0 +1,23 @@
+{
+  "manifest_version": 3,
+  "name": "Intentio",
+  "version": "1.0.0",
+  "description": "Helps you focus.", 
+  "action": {
+      "default_popup": "js/index.html"
+  }, 
+  "permissions": [
+      "scripting", 
+      "activeTab"
+  ], 
+  "host_permissions": [
+      "http://*/*", 
+      "https://*/*"
+  ], 
+  "web_accessible_resources": [
+      {
+          "resources": ["settings.html"],
+          "matches": ["<all_urls>"]
+      }
+  ]
+}
