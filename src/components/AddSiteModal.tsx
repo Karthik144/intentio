@@ -1,4 +1,4 @@
-import * as React from 'react';
+import React, { useState } from 'react';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
@@ -24,9 +24,44 @@ interface AddSiteModalProps {
     onClose: () => void;
 }
 
+interface SiteMetaData {
+  message: string; 
+  time: number; 
+  blocked: boolean; 
+  unlocks: number; 
+  totalVisits: number; 
+}
+
+interface StorageData {
+  sites: { [key: string]: SiteMetaData }; 
+}
   
 export default function AddSiteModal({ open, onClose }: AddSiteModalProps) {
 
+  const [url, setUrl] = useState(''); 
+  const [message, setMessage] = useState(''); 
+
+  const handleUrlChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setUrl(event.target.value);
+  };
+
+  const handleMessageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setMessage(event.target.value);
+  };
+
+  const addNewSite = (key: string, value: SiteMetaData) => {
+    chrome.storage.local.get('sites', (data: { [key: string]: any; }) => {
+      // Retrieve existing sites or initialize as empty object
+      const sites = data.sites || {}; 
+      sites[key] = value; 
+      console.log("Sites:", JSON.stringify(sites)); 
+      chrome.storage.local.set({ sites }, () => {
+        // Data has been successfully saved, close the popup
+        console.log("Inside set"); 
+        onClose(); 
+      }); 
+    });
+  };
 
   return (
     <div>
@@ -41,16 +76,23 @@ export default function AddSiteModal({ open, onClose }: AddSiteModalProps) {
                 Add new site
             </Typography>
             <Stack spacing={2} sx={{pt: 2, pb: 2}}>
-                <TextField id="outlined-basic" label="URL" variant="outlined" />
+                <TextField id="outlined-basic" label="URL" variant="outlined" onChange={handleUrlChange} />
                 <TextField
                     id="outlined-multiline-flexible"
                     label="Message"
                     multiline
                     maxRows={4}
+                    onChange={handleMessageChange}
                 />          
             </Stack>
 
-            <StyledButton variant="contained" sx={{ mt: 2 }}>Save</StyledButton>
+            <StyledButton 
+              variant="contained" 
+              onClick={() => addNewSite(url, { message, time: 15, blocked: false, unlocks: 0, totalVisits: 0 })}
+              sx={{ mt: 2 }}
+            >
+              Save
+            </StyledButton>
         </Box>
       </Modal>
     </div>

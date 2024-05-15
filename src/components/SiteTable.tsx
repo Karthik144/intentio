@@ -1,28 +1,30 @@
-import * as React from 'react';
+import React, { useState, useEffect } from 'react';
 import { alpha } from '@mui/material/styles';
-import Box from '@mui/material/Box';
-import Table from '@mui/material/Table';
-import TableBody from '@mui/material/TableBody';
-import TableCell from '@mui/material/TableCell';
-import TableContainer from '@mui/material/TableContainer';
-import TableHead from '@mui/material/TableHead';
-import TablePagination from '@mui/material/TablePagination';
-import TableRow from '@mui/material/TableRow';
-import TableSortLabel from '@mui/material/TableSortLabel';
-import Toolbar from '@mui/material/Toolbar';
-import Typography from '@mui/material/Typography';
-import Paper from '@mui/material/Paper';
-import Checkbox from '@mui/material/Checkbox';
-import IconButton from '@mui/material/IconButton';
-import Tooltip from '@mui/material/Tooltip';
-import FormControlLabel from '@mui/material/FormControlLabel';
-import Switch from '@mui/material/Switch';
-import DeleteIcon from '@mui/icons-material/Delete';
-import FilterListIcon from '@mui/icons-material/FilterList';
-import Button from '@mui/material/Button';
 import { visuallyHidden } from '@mui/utils';
+import {
+    Box,
+    Table,
+    TableBody,
+    TableCell,
+    TableContainer,
+    TableHead,
+    TablePagination,
+    TableRow,
+    TableSortLabel,
+    Toolbar,
+    Typography,
+    Paper,
+    Checkbox,
+    IconButton,
+    Tooltip,
+    FormControlLabel,
+    Switch,
+    Button
+} from '@mui/material';
+import { Delete as DeleteIcon, FilterList as FilterListIcon } from '@mui/icons-material';
 import AddButton from './AddButton'; 
-import AddSiteModal from './AddSiteModal'; 
+import AddSiteModal from './AddSiteModal';
+
 
 interface Data {
   id: number;
@@ -32,13 +34,7 @@ interface Data {
   totalVisits: number;
 }
 
-function createData(
-    id: number, 
-    siteUrl: string, 
-    message: string, 
-    unlocks: number, 
-    totalVisits: number, 
-): Data {
+function createData(id: number, siteUrl: string, message: string, unlocks: number, totalVisits: number): Data {
   return {
     id,
     siteUrl,
@@ -47,11 +43,9 @@ function createData(
     totalVisits,
   };
 }
+  
 
-const rows = [
-  createData(1, 'youtube.com', "Don't waste time watching videos!", 3, 67),
-  createData(2, 'linkedin.com', "Don't waste time looking at bs posts!", 25, 51), 
-];
+let rows: Data[] = [];
 
 function descendingComparator<T>(a: T, b: T, orderBy: keyof T) {
   if (b[orderBy] < a[orderBy]) {
@@ -65,10 +59,7 @@ function descendingComparator<T>(a: T, b: T, orderBy: keyof T) {
 
 type Order = 'asc' | 'desc';
 
-function getComparator<Key extends keyof any>(
-  order: Order,
-  orderBy: Key,
-): (
+function getComparator<Key extends keyof any>(order: Order, orderBy: Key): (
   a: { [key in Key]: number | string },
   b: { [key in Key]: number | string },
 ) => number {
@@ -133,8 +124,7 @@ interface EnhancedTableProps {
 }
 
 function EnhancedTableHead(props: EnhancedTableProps) {
-  const { onSelectAllClick, order, orderBy, numSelected, rowCount, onRequestSort } =
-    props;
+  const { onSelectAllClick, order, orderBy, numSelected, rowCount, onRequestSort } = props;
   const createSortHandler =
     (property: keyof Data) => (event: React.MouseEvent<unknown>) => {
       onRequestSort(event, property);
@@ -235,15 +225,55 @@ function EnhancedTableToolbar(props: EnhancedTableToolbarProps) {
 }
 
 export default function EnhancedTable() {
-  const [order, setOrder] = React.useState<Order>('asc');
-  const [orderBy, setOrderBy] = React.useState<keyof Data>('unlocks');
-  const [selected, setSelected] = React.useState<readonly number[]>([]);
-  const [page, setPage] = React.useState(0);
-  const [rowsPerPage, setRowsPerPage] = React.useState(5);
-
-  const [openModal, setOpenModal] = React.useState(false);
+  const [order, setOrder] = useState<Order>('asc');
+  const [orderBy, setOrderBy] = useState<keyof Data>('unlocks');
+  const [selected, setSelected] = useState<readonly number[]>([]);
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(5);
+  const [rowData, setRowData] = useState<Data[]>([]); 
+  const [openModal, setOpenModal] = useState(false);
   const handleOpenModal = () => setOpenModal(true);
   const handleCloseModal = () => setOpenModal(false);
+
+  async function getRowData(): Promise<Data[]> {
+    return new Promise((resolve, reject) => {
+      chrome.storage.local.get('sites', (data: { [key: string]: any; }) => {
+        if (data.sites) {
+          console.log("INSIDE IF DATA.SITES"); 
+          console.log("DATA:", data.sites); 
+  
+          // Get the current maximum id in the rows array
+          const maxId = rowData.reduce((max, row) => (row.id > max ? row.id : max), 0);
+  
+          const newRows = Object.keys(data.sites).map((key, index) => {
+            const siteData = data.sites[key];
+            return createData(maxId + index + 1, key, siteData.message, siteData.unlocks, siteData.totalVisits);
+          });
+  
+          console.log("NEW ROWS:", newRows); 
+          resolve(newRows); // Resolve the promise with the new rows
+        } else {
+          console.log("INSIDE ELSE"); 
+          reject(new Error('No sites data found')); // Reject the promise if no sites data is found
+        }
+      });
+    });
+  }
+  
+
+  useEffect(() => {
+    console.log("USE EFFECT CALLED"); 
+    getRowData().then((newRows) => {
+      console.log("INSIDE THEN"); 
+      setRowData((prevData) => [...prevData, ...newRows]);
+    }).catch((error) => {
+      console.error('Error retrieving row data:', error);
+    });
+  }, []);
+
+  useEffect(() => {
+    console.log("ROW DATA IN USEEFFECT:", rowData); 
+  }, [rowData]); 
 
   const handleRequestSort = (
     event: React.MouseEvent<unknown>,
@@ -256,7 +286,7 @@ export default function EnhancedTable() {
 
   const handleSelectAllClick = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.checked) {
-      const newSelected = rows.map((n) => n.id);
+      const newSelected = rowData.map((n) => n.id);
       setSelected(newSelected);
       return;
     }
@@ -294,16 +324,16 @@ export default function EnhancedTable() {
   const isSelected = (id: number) => selected.indexOf(id) !== -1;
 
   // Avoid a layout jump when reaching the last page with empty rows.
-  const emptyRows =
-    page > 0 ? Math.max(0, (1 + page) * rowsPerPage - rows.length) : 0;
+  const emptyRows = page > 0 ? Math.max(0, (1 + page) * rowsPerPage - Number(rowData.length)) : 0;
+
 
   const visibleRows = React.useMemo(
     () =>
-      stableSort(rows, getComparator(order, orderBy)).slice(
+      stableSort(rowData, getComparator(order, orderBy)).slice(
         page * rowsPerPage,
         page * rowsPerPage + rowsPerPage,
       ),
-    [order, orderBy, page, rowsPerPage],
+    [rowData, order, orderBy, page, rowsPerPage],
   );
 
   return (
@@ -325,7 +355,7 @@ export default function EnhancedTable() {
               orderBy={orderBy}
               onSelectAllClick={handleSelectAllClick}
               onRequestSort={handleRequestSort}
-              rowCount={rows.length}
+              rowCount={rowData.length}
             />
             <TableBody>
               {visibleRows.map((row, index) => {
@@ -381,6 +411,7 @@ export default function EnhancedTable() {
                 </TableRow>
               )}
             </TableBody>
+
           </Table>
         </TableContainer>
         <TablePagination

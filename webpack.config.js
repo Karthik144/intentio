@@ -6,6 +6,9 @@ module.exports = {
     entry: {
         index: "./src/index.tsx", 
         settings: "./src/settings.tsx", 
+        blocked: "./src/blocked.tsx", 
+        serviceWorker: "./src/serviceWorker.ts", 
+        contentScript: "./src/contentScript.tsx", 
     },
     mode: "production",
     module: {
@@ -34,10 +37,12 @@ module.exports = {
             patterns: [
                 { from: "manifest.json", to: "../manifest.json" },
                 { from: "public/settings.html", to: "../settings.html" }, 
+                { from: "public/blocked.html", to: "../blocked.html" }, 
+
 
             ],
         }),
-        ...getHtmlPlugins(["index", "settings"]), 
+        ...getHtmlPlugins(["index", "settings", "blocked"]), 
     ],
     resolve: {
         extensions: [".tsx", ".ts", ".js"],

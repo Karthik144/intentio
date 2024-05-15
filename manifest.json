@@ -6,13 +6,17 @@
   "action": {
       "default_popup": "js/index.html"
   }, 
+  "background": {
+    "service_worker": "js/serviceWorker.js"
+  }, 
   "permissions": [
-      "scripting", 
-      "activeTab"
+      "tabs", 
+      "activeTab", 
+      "storage", 
+      "scripting"
   ], 
   "host_permissions": [
-      "http://*/*", 
-      "https://*/*"
+    "<all_urls>"
   ], 
   "web_accessible_resources": [
       {
