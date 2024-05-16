@@ -23,14 +23,9 @@ chrome.tabs.onActivated.addListener((tab) => {
                     if (savedSites.includes(currentTabData.url!)){
 
                         console.log("INSIDE IF STATEMENT"); 
-                        // const currentSiteData = data.sites[currentTabData.url!]; 
 
                         chrome.tabs.update(tab.tabId, { url: chrome.runtime.getURL('blocked.html') });
 
-                        // chrome.scripting.executeScript({
-                        //     target: { tabId: currentTabData.id! },
-                        //     files: ['js/contentScript.js']
-                        // });
                     }
                 }
             })

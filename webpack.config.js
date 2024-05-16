@@ -8,7 +8,6 @@ module.exports = {
         settings: "./src/settings.tsx", 
         blocked: "./src/blocked.tsx", 
         serviceWorker: "./src/serviceWorker.ts", 
-        contentScript: "./src/contentScript.tsx", 
     },
     mode: "production",
     module: {
