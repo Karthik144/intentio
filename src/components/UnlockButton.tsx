@@ -11,7 +11,7 @@ const StyledAddButton = styled(Button)<ButtonProps>(() => ({
   borderRadius: "10px",
   textTransform: "none",
   "&:hover": {
-    backgroundColor: "#f0f0f0", 
+    backgroundColor: "#f0f0f0",
   },
 }));
 

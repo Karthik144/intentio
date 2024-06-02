@@ -30,6 +30,7 @@ interface SiteMetaData {
   blocked: boolean;
   unlocks: number;
   totalVisits: number;
+  unlockMsgs?: string[];
 }
 
 interface StorageData {
@@ -95,7 +96,7 @@ export default function AddSiteModal({ open, onClose }: AddSiteModalProps) {
             onClick={() =>
               addNewSite(url, {
                 message,
-                time: 15,
+                time: 2,
                 blocked: false,
                 unlocks: 0,
                 totalVisits: 0,
