@@ -195,11 +195,12 @@ function EnhancedTableHead(props: EnhancedTableProps) {
 
 interface EnhancedTableToolbarProps {
   handleOpenModal: () => void;
+  handleDelete: () => void; 
   numSelected: number;
 }
 
 function EnhancedTableToolbar(props: EnhancedTableToolbarProps) {
-  const { numSelected, handleOpenModal } = props;
+  const { numSelected, handleOpenModal, handleDelete } = props;
 
   return (
     <Toolbar
@@ -236,7 +237,7 @@ function EnhancedTableToolbar(props: EnhancedTableToolbarProps) {
       )}
       {numSelected > 0 ? (
         <Tooltip title="Delete">
-          <IconButton>
+          <IconButton onClick={handleDelete}>
             <DeleteIcon />
           </IconButton>
         </Tooltip>
@@ -260,6 +261,24 @@ export default function EnhancedTable() {
   const [openModal, setOpenModal] = useState(false);
   const handleOpenModal = () => setOpenModal(true);
   const handleCloseModal = () => setOpenModal(false);
+
+  // Deletion handler
+  const handleDelete = () => {
+    const newRowData = rowData.filter((row) => !selected.includes(row.id));
+    setRowData(newRowData);
+    setSelected([]);
+    // Also remove the deleted sites from chrome storage
+    chrome.storage.local.get("sites", (data) => {
+      const sites = data.sites || {};
+      selected.forEach((id) => {
+        const siteUrl = rowData.find((row) => row.id === id)?.siteUrl;
+        if (siteUrl) {
+          delete sites[siteUrl];
+        }
+      });
+      chrome.storage.local.set({ sites });
+    });
+  };
 
   async function getRowData(): Promise<Data[]> {
     return new Promise((resolve, reject) => {
@@ -382,6 +401,7 @@ export default function EnhancedTable() {
         <EnhancedTableToolbar
           numSelected={selected.length}
           handleOpenModal={handleOpenModal}
+          handleDelete={handleDelete} 
         />
         <TableContainer>
           <Table

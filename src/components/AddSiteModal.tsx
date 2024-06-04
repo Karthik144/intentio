@@ -6,6 +6,7 @@ import Modal from "@mui/material/Modal";
 import Stack from "@mui/material/Stack";
 import StyledButton from "./StyledButton";
 import TextField from "@mui/material/TextField";
+import Slider from '@mui/material/Slider';
 
 const style = {
   position: "absolute" as "absolute",
@@ -31,6 +32,7 @@ interface SiteMetaData {
   unlocks: number;
   totalVisits: number;
   unlockMsgs?: string[];
+  pattern?: string; 
 }
 
 interface StorageData {
@@ -40,6 +42,7 @@ interface StorageData {
 export default function AddSiteModal({ open, onClose }: AddSiteModalProps) {
   const [url, setUrl] = useState("");
   const [message, setMessage] = useState("");
+  const [timeLimit, setTimeLimit] = useState(0); 
 
   const handleUrlChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setUrl(event.target.value);
@@ -49,7 +52,14 @@ export default function AddSiteModal({ open, onClose }: AddSiteModalProps) {
     setMessage(event.target.value);
   };
 
+  const handleTimeLimitChange = (event: Event, value: number | number[]) => {
+    const numericValue = Array.isArray(value) ? value[0] : value; 
+    const valueInSeconds = numericValue * 60; 
+    console.log("VALUE IN LIMIT CHANGE:", valueInSeconds);
+    setTimeLimit(valueInSeconds as number);
+  };
   const addNewSite = (key: string, value: SiteMetaData) => {
+
     chrome.storage.local.get("sites", (data: { [key: string]: any }) => {
       // Retrieve existing sites or initialize as empty object
       const sites = data.sites || {};
@@ -62,6 +72,12 @@ export default function AddSiteModal({ open, onClose }: AddSiteModalProps) {
       });
     });
   };
+
+  function generateRegexPattern(site: string): string {
+    // Escape special characters for regex
+    const escapedSite = site.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+    return `^${escapedSite}.*$`;
+  }
 
   return (
     <div>
@@ -89,6 +105,21 @@ export default function AddSiteModal({ open, onClose }: AddSiteModalProps) {
               maxRows={4}
               onChange={handleMessageChange}
             />
+            <Stack spacing={1}>
+              <Typography>Time Limit</Typography>
+              <Slider
+                aria-label="Time Limit"
+                defaultValue={30}
+                valueLabelDisplay="auto"
+                onChange={handleTimeLimitChange}
+                shiftStep={30}
+                step={5}
+                marks
+                min={0}
+                max={60}
+              />
+            </Stack>
+
           </Stack>
 
           <StyledButton
@@ -96,10 +127,11 @@ export default function AddSiteModal({ open, onClose }: AddSiteModalProps) {
             onClick={() =>
               addNewSite(url, {
                 message,
-                time: 2,
+                time: timeLimit,
                 blocked: false,
                 unlocks: 0,
                 totalVisits: 0,
+                pattern: generateRegexPattern(url), 
               })
             }
             sx={{ mt: 2 }}
