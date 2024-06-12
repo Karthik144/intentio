@@ -106,9 +106,9 @@ export default function AddSiteModal({ open, onClose }: AddSiteModalProps) {
               onChange={handleMessageChange}
             />
             <Stack spacing={1}>
-              <Typography>Time Limit</Typography>
+              <Typography>Daily Time Limit</Typography>
               <Slider
-                aria-label="Time Limit"
+                aria-label="Daily Time Limit"
                 defaultValue={30}
                 valueLabelDisplay="auto"
                 onChange={handleTimeLimitChange}
