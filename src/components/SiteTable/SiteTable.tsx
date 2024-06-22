@@ -25,21 +25,18 @@ import {
   Delete as DeleteIcon,
   FilterList as FilterListIcon,
 } from "@mui/icons-material";
-import AddButton from "./AddButton";
-import AddSiteModal from "./AddSiteModal";
+import AddButton from "../AddButton";
+import AddSiteModal from "../AddSiteModal/AddSiteModal";
+import { Data, Order, HeadCell, headCells, EnhancedTableProps, EnhancedTableToolbarProps } from "./constants"; 
 
-interface Data {
-  id: number;
-  siteUrl: string;
-  message: string;
-  unlocks: number;
-  totalVisits: number;
-}
+
+let rows: Data[] = [];
 
 function createData(
   id: number,
   siteUrl: string,
   message: string,
+  time: number,  
   unlocks: number,
   totalVisits: number
 ): Data {
@@ -47,12 +44,11 @@ function createData(
     id,
     siteUrl,
     message,
+    time, 
     unlocks,
     totalVisits,
   };
 }
-
-let rows: Data[] = [];
 
 function descendingComparator<T>(a: T, b: T, orderBy: keyof T) {
   if (b[orderBy] < a[orderBy]) {
@@ -63,8 +59,6 @@ function descendingComparator<T>(a: T, b: T, orderBy: keyof T) {
   }
   return 0;
 }
-
-type Order = "asc" | "desc";
 
 function getComparator<Key extends keyof any>(
   order: Order,
@@ -91,52 +85,6 @@ function stableSort<T>(
     return a[1] - b[1];
   });
   return stabilizedThis.map((el) => el[0]);
-}
-
-interface HeadCell {
-  disablePadding: boolean;
-  id: keyof Data;
-  label: string;
-  numeric: boolean;
-}
-
-const headCells: readonly HeadCell[] = [
-  {
-    id: "siteUrl",
-    numeric: false,
-    disablePadding: true,
-    label: "Site URL",
-  },
-  {
-    id: "message",
-    numeric: false,
-    disablePadding: true,
-    label: "Message",
-  },
-  {
-    id: "unlocks",
-    numeric: true,
-    disablePadding: false,
-    label: "Unlocks",
-  },
-  {
-    id: "totalVisits",
-    numeric: true,
-    disablePadding: false,
-    label: "Total Visits",
-  },
-];
-
-interface EnhancedTableProps {
-  numSelected: number;
-  onRequestSort: (
-    event: React.MouseEvent<unknown>,
-    property: keyof Data
-  ) => void;
-  onSelectAllClick: (event: React.ChangeEvent<HTMLInputElement>) => void;
-  order: Order;
-  orderBy: string;
-  rowCount: number;
 }
 
 function EnhancedTableHead(props: EnhancedTableProps) {
@@ -193,12 +141,6 @@ function EnhancedTableHead(props: EnhancedTableProps) {
   );
 }
 
-interface EnhancedTableToolbarProps {
-  handleOpenModal: () => void;
-  handleDelete: () => void; 
-  numSelected: number;
-}
-
 function EnhancedTableToolbar(props: EnhancedTableToolbarProps) {
   const { numSelected, handleOpenModal, handleDelete } = props;
 
@@ -252,6 +194,8 @@ function EnhancedTableToolbar(props: EnhancedTableToolbarProps) {
 }
 
 export default function EnhancedTable() {
+
+
   const [order, setOrder] = useState<Order>("asc");
   const [orderBy, setOrderBy] = useState<keyof Data>("unlocks");
   const [selected, setSelected] = useState<readonly number[]>([]);
@@ -259,15 +203,15 @@ export default function EnhancedTable() {
   const [rowsPerPage, setRowsPerPage] = useState(5);
   const [rowData, setRowData] = useState<Data[]>([]);
   const [openModal, setOpenModal] = useState(false);
+  
+  const handleSetRowData = (newData: Data) => setRowData((prevRowData) => [...prevRowData, newData]);
   const handleOpenModal = () => setOpenModal(true);
   const handleCloseModal = () => setOpenModal(false);
 
-  // Deletion handler
   const handleDelete = () => {
     const newRowData = rowData.filter((row) => !selected.includes(row.id));
     setRowData(newRowData);
     setSelected([]);
-    // Also remove the deleted sites from chrome storage
     chrome.storage.local.get("sites", (data) => {
       const sites = data.sites || {};
       selected.forEach((id) => {
@@ -284,8 +228,6 @@ export default function EnhancedTable() {
     return new Promise((resolve, reject) => {
       chrome.storage.local.get("sites", (data: { [key: string]: any }) => {
         if (data.sites) {
-          console.log("INSIDE IF DATA.SITES");
-          console.log("DATA:", data.sites);
 
           // Get the current maximum id in the rows array
           const maxId = rowData.reduce(
@@ -299,36 +241,28 @@ export default function EnhancedTable() {
               maxId + index + 1,
               key,
               siteData.message,
+              siteData.time, 
               siteData.unlocks,
               siteData.totalVisits
             );
           });
-
-          console.log("NEW ROWS:", newRows);
-          resolve(newRows); // Resolve the promise with the new rows
+          resolve(newRows); 
         } else {
-          console.log("INSIDE ELSE");
-          reject(new Error("No sites data found")); // Reject the promise if no sites data is found
+          reject(new Error("No sites data found")); 
         }
       });
     });
   }
 
   useEffect(() => {
-    console.log("USE EFFECT CALLED");
     getRowData()
       .then((newRows) => {
-        console.log("INSIDE THEN");
         setRowData((prevData) => [...prevData, ...newRows]);
       })
       .catch((error) => {
         console.error("Error retrieving row data:", error);
       });
   }, []);
-
-  useEffect(() => {
-    console.log("ROW DATA IN USEEFFECT:", rowData);
-  }, [rowData]);
 
   const handleRequestSort = (
     event: React.MouseEvent<unknown>,
@@ -453,6 +387,7 @@ export default function EnhancedTable() {
                     <TableCell align="left" padding="none">
                       {row.message}
                     </TableCell>
+                    <TableCell align="right">{`${(row.time / 60)} mins`}</TableCell>
                     <TableCell align="right">{row.unlocks}</TableCell>
                     <TableCell align="right">{row.totalVisits}</TableCell>
                   </TableRow>
@@ -481,7 +416,7 @@ export default function EnhancedTable() {
         />
       </Paper>
 
-      <AddSiteModal open={openModal} onClose={handleCloseModal} />
+      <AddSiteModal open={openModal} onClose={handleCloseModal} rowDataLength={rowData.length} handleSetRowData={handleSetRowData}/>
     </Box>
   );
 }

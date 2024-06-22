@@ -4,6 +4,7 @@ interface SiteMetaData {
   blocked: boolean;
   unlocks: number;
   totalVisits: number;
+  totalVisitsWhenBlocked: number; 
   unlockMsgs?: string[];
   startTime?: number; // Time when the user started the session
   accumulatedTime?: number; // Accumulated time spent on the site in seconds
@@ -20,15 +21,16 @@ let currentExpression: RegExp | null = null;
 let currentMessage: string = "";
 
 
+// Triggers before user enters the site 
 chrome.webNavigation.onBeforeNavigate.addListener(async (details) => {
-  console.log("Inside onBeforeNavigate");
 
   if (details.frameId === 0 && details.url) {
-    console.log("Navigating to:", details.url);
+
     const matchedSite = await findMatchingSite(details.url);
+
     if (matchedSite) {
-      console.log("Matched site:", matchedSite);
       chrome.storage.local.get("sites", async (data) => {
+
         const siteData = data.sites[matchedSite];
         setGlobalVars(matchedSite, siteData.message); 
         currentExpression = new RegExp(siteData.pattern || generateRegexPattern(matchedSite));
@@ -36,12 +38,12 @@ chrome.webNavigation.onBeforeNavigate.addListener(async (details) => {
         const today = new Date();
         const startTime = siteData.startTime || 0;
 
+        await updateTotalVisits(matchedSite);
+
         if (!isSameDate(startTime, today) && siteData.blocked) {
-          console.log("Not the same date, unblocking site");
           await updateBlockedStatus(matchedSite, false);
         } else if (siteData.blocked) {
-          console.log("Site is blocked, redirecting to blocked page");
-          updateTotalVisits(matchedSite);
+          await updateTotalVisitsWhenBlocked(matchedSite); 
           redirectToBlockedPage(matchedSite, currentMessage, details.tabId);
         }
       });
@@ -49,16 +51,18 @@ chrome.webNavigation.onBeforeNavigate.addListener(async (details) => {
   }
 }, { url: [{ schemes: ["http", "https"] }] });
 
+
+// Triggers once site has finished loading 
 chrome.webNavigation.onCompleted.addListener(async (details) => {
-  console.log("Inside onCompleted");
 
   if (details.frameId === 0 && details.url) {
-    console.log("Completed navigation to:", details.url);
 
     const matchedSite = await findMatchingSite(details.url);
+
     if (matchedSite) {
-      console.log("Matched site:", matchedSite);
+
       chrome.storage.local.get("sites", async (data) => {
+
         const siteData = data.sites[matchedSite];
         setGlobalVars(matchedSite, siteData.message); 
         currentExpression = new RegExp(siteData.pattern || generateRegexPattern(matchedSite));
@@ -66,19 +70,17 @@ chrome.webNavigation.onCompleted.addListener(async (details) => {
         const today = new Date();
         const startTime = siteData.startTime || 0;
 
+        await updateTotalVisits(matchedSite);
+
         if (!isSameDate(startTime, today) && siteData.blocked) {
-          console.log("Not the same date, unblocking site and starting timer");
           await updateBlockedStatus(matchedSite, false);
           await startTimer(matchedSite, details.tabId, calculateRemainingTime(siteData));
         } else if (siteData.blocked) {
-          console.log("Site is blocked, redirecting to blocked page");
-          updateTotalVisits(matchedSite);
+          await updateTotalVisitsWhenBlocked(matchedSite); 
           redirectToBlockedPage(matchedSite, currentMessage, details.tabId);
         } else {
-          console.log("Site is not blocked, starting timer");
           const remainingTime = calculateRemainingTime(siteData);
           if (remainingTime <= 0) {
-            console.log("Remaining time <= 0, blocking site");
             await updateBlockedStatus(matchedSite, true);
             redirectToBlockedPage(matchedSite, currentMessage, details.tabId);
           } else {
@@ -91,52 +93,56 @@ chrome.webNavigation.onCompleted.addListener(async (details) => {
 }, { url: [{ schemes: ["http", "https"] }] });
 
 chrome.tabs.onActivated.addListener(async (activeInfo) => {
-  console.log("Inside onActivated");
 
   if (activeInfo.tabId) {
+
     chrome.tabs.get(activeInfo.tabId, async (tab) => {
+
       if (tab && tab.url) {
 
         const matchedSite = await findMatchingSite(tab.url);
 
         if (matchedSite) {
+
           chrome.storage.local.get("sites", async (data) => {
+
             const siteData = data.sites[matchedSite];
             currentSite = matchedSite;
             currentMessage = siteData.message;
             currentExpression = new RegExp(siteData.pattern || generateRegexPattern(matchedSite));
 
-            console.log("Activated URL:", tab.url);
-            console.log("Activated pattern:", currentExpression);
 
             const today = new Date();
             const startTime = siteData.startTime || 0;
-            console.log("Start time:", startTime);
+
+            await updateTotalVisits(matchedSite);
 
             if (!isSameDate(startTime, today) && siteData.blocked) {
-              console.log("Not the same date, unblocking site and starting timer");
               await updateBlockedStatus(matchedSite, false);
               await startTimer(matchedSite, activeInfo.tabId, calculateRemainingTime(siteData));
             } else if (siteData.blocked) {
+              await updateTotalVisitsWhenBlocked(matchedSite); 
               redirectToBlockedPage(matchedSite, currentMessage, activeInfo.tabId);
             } else {
               await startTimer(matchedSite, activeInfo.tabId, calculateRemainingTime(siteData));
             }
           });
         } else {
-              // User has switched away from time-bound site
-              // Stop the timer and update accumulated time
-              cleanUp(activeInfo.tabId); 
+              // User has switched away from time-bound site; stop the timer and update accumulated time
+              await cleanUp(activeInfo.tabId); 
         }
       }
     });
   }
 });
 
-chrome.tabs.onRemoved.addListener((tabId) => {
-  console.log("Inside onRemoved");
-  cleanUp(tabId); 
+// Triggers once user closes the tab 
+chrome.tabs.onRemoved.addListener(async (tabId) => {
+  await cleanUp(tabId); 
 });
+
+
+// Helper functions 
 
 function calculateRemainingTime(siteData: SiteMetaData): number {
   const accumulatedTime = siteData.accumulatedTime || 0;
@@ -144,7 +150,6 @@ function calculateRemainingTime(siteData: SiteMetaData): number {
 }
 
 async function startTimer(site: string, tabId: number, timeLimit: number) {
-  console.log("Starting timer for:", site);
 
   if (timers[tabId]) {
     clearTimeout(timers[tabId]);
@@ -167,22 +172,7 @@ function generateRegexPattern(site: string): string {
   return `^${escapedSite}.*$`;
 }
 
-function updateAccumulatedTime(tabId: number) {
-  console.log("UPDATE ACCUMULATED TIME"); 
-  chrome.storage.local.get("sites", (data) => {
-    if (currentSite && data.sites[currentSite]) {
-      const siteData = data.sites[currentSite];
-      const now = Date.now();
-      const elapsedTime = siteData.startTime ? (now - siteData.startTime) / 1000 : 0;
-      console.log("ELAPSED TIMES:", elapsedTime); 
-      siteData.accumulatedTime = (siteData.accumulatedTime || 0) + elapsedTime;
-      chrome.storage.local.set({ sites: data.sites });
-    }
-  });
-}
-
 async function handleTimeLimitReached(site: string, message: string, tabId: number) {
-  console.log("Time limit reached for:", site);
 
   if (timers[tabId]) {
     await updateBlockedStatus(site, true);
@@ -191,24 +181,11 @@ async function handleTimeLimitReached(site: string, message: string, tabId: numb
 }
 
 function redirectToBlockedPage(site: string, message: string, tabId: number) {
-  console.log("Redirecting to blocked page for:", site);
   const urlAndMessage = { url: site, message: message };
   chrome.storage.local.set({ blockedSite: urlAndMessage }, () => {
     chrome.tabs.update(tabId, {
       url: chrome.runtime.getURL("blocked.html"),
     });
-  });
-}
-
-function updateTotalVisits(site: string) {
-  console.log("Updating total visits for:", site);
-
-  chrome.storage.local.get("sites", (data) => {
-    const sites = data.sites || {};
-    if (sites[site]) {
-      sites[site].totalVisits = (sites[site].totalVisits || 0) + 1;
-      chrome.storage.local.set({ sites });
-    }
   });
 }
 
@@ -228,7 +205,6 @@ async function findMatchingSite(url: string): Promise<string | null> {
       const siteKeys = Object.keys(sites);
 
       if (siteKeys.length === 0) {
-        console.log("No sites found in storage.");
         resolve(null);
         return;
       }
@@ -248,6 +224,65 @@ async function findMatchingSite(url: string): Promise<string | null> {
       }
 
       resolve(null);
+    });
+  });
+}
+
+function setGlobalVars(site: string, message: string){
+  currentSite = site;
+  currentMessage = message;
+}
+
+
+// Chrome api helper functions 
+function updateAccumulatedTime(tabId: number): Promise<void> {
+  return new Promise((resolve, reject) => {
+    chrome.storage.local.get("sites", (data) => {
+      if (currentSite && data.sites && data.sites[currentSite]) {
+        const siteData = data.sites[currentSite];
+        const now = Date.now();
+        const elapsedTime = siteData.startTime ? (now - siteData.startTime) / 1000 : 0;
+        siteData.accumulatedTime = (siteData.accumulatedTime || 0) + elapsedTime;
+        chrome.storage.local.set({ sites: data.sites }, () => {
+          resolve();
+        });
+      } else {
+        reject(new Error(`Site ${currentSite} not found in storage`));
+      }
+    });
+  });
+}
+
+async function updateTotalVisits(site: string): Promise<void> {
+
+  return new Promise<void>((resolve, reject) => {
+    chrome.storage.local.get("sites", (data) => {
+      const sites = data.sites || {};
+      if (sites[site]) {
+        sites[site].totalVisits = (sites[site].totalVisits || 0) + 1;
+        chrome.storage.local.set({ sites }, () => {
+          resolve();
+        });
+      } else {
+        resolve();
+      }
+    });
+  });
+}
+
+async function updateTotalVisitsWhenBlocked(site: string): Promise<void> {
+
+  return new Promise<void>((resolve, reject) => {
+    chrome.storage.local.get("sites", (data) => {
+      const sites = data.sites || {};
+      if (sites[site]) {
+        sites[site].totalVisitsWhenBlocked = (sites[site].totalVisitsWhenBlocked || 0) + 1;
+        chrome.storage.local.set({ sites }, () => {
+          resolve();
+        });
+      } else {
+        resolve(); 
+      }
     });
   });
 }
@@ -278,17 +313,12 @@ function setLocalStorageData(data: any): Promise<void> {
   });
 }
 
-function setGlobalVars(site: string, message: string){
-  currentSite = site;
-  currentMessage = message;
-}
-
-function cleanUp(tabId: number){
+async function cleanUp(tabId: number): Promise<void> {
   if (timers[tabId]) {
-    setGlobalVars('', ''); 
+    setGlobalVars('', '');
     currentExpression = null;
     clearTimeout(timers[tabId]);
-    updateAccumulatedTime(tabId);
+    await updateAccumulatedTime(tabId);
     delete timers[tabId];
   }
 }

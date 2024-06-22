@@ -4,45 +4,25 @@ import Button from "@mui/material/Button";
 import Typography from "@mui/material/Typography";
 import Modal from "@mui/material/Modal";
 import Stack from "@mui/material/Stack";
-import StyledButton from "./StyledButton";
+import StyledButton from "../StyledButton";
 import TextField from "@mui/material/TextField";
 import Slider from '@mui/material/Slider';
+import {
+  style,
+  Data,
+  SiteMetaData,
+  StorageData,
+  AddSiteModalProps
+} from './constants';
 
-const style = {
-  position: "absolute" as "absolute",
-  top: "50%",
-  left: "50%",
-  transform: "translate(-50%, -50%)",
-  width: 400,
-  bgcolor: "background.paper",
-  borderRadius: 4,
-  boxShadow: 24,
-  p: 4,
-};
+export default function AddSiteModal({ open, rowDataLength, handleSetRowData, onClose }: AddSiteModalProps) {
 
-interface AddSiteModalProps {
-  open: boolean;
-  onClose: () => void;
-}
-
-interface SiteMetaData {
-  message: string;
-  time: number;
-  blocked: boolean;
-  unlocks: number;
-  totalVisits: number;
-  unlockMsgs?: string[];
-  pattern?: string; 
-}
-
-interface StorageData {
-  sites: { [key: string]: SiteMetaData };
-}
-
-export default function AddSiteModal({ open, onClose }: AddSiteModalProps) {
+  // STATES 
   const [url, setUrl] = useState("");
   const [message, setMessage] = useState("");
   const [timeLimit, setTimeLimit] = useState(0); 
+
+  // HANDLERS
 
   const handleUrlChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setUrl(event.target.value);
@@ -58,12 +38,27 @@ export default function AddSiteModal({ open, onClose }: AddSiteModalProps) {
     console.log("VALUE IN LIMIT CHANGE:", valueInSeconds);
     setTimeLimit(valueInSeconds as number);
   };
-  const addNewSite = (key: string, value: SiteMetaData) => {
 
-    chrome.storage.local.get("sites", (data: { [key: string]: any }) => {
+
+  // HELPER FUNCS
+
+  const addNewSite = (siteUrl: string, siteMetaData: SiteMetaData): void => {
+
+    const newSiteRow: Data = {
+      id: rowDataLength + 1,
+      siteUrl,
+      message: siteMetaData.message,
+      time: timeLimit, 
+      unlocks: siteMetaData.unlocks,
+      totalVisits: siteMetaData.totalVisits,
+    };
+
+    handleSetRowData(newSiteRow); 
+
+    chrome.storage.local.get("sites", (data: { [siteUrl: string]: any }) => {
       // Retrieve existing sites or initialize as empty object
       const sites = data.sites || {};
-      sites[key] = value;
+      sites[siteUrl] = siteMetaData;
       console.log("Sites:", JSON.stringify(sites));
       chrome.storage.local.set({ sites }, () => {
         // Data has been successfully saved, close the popup
@@ -73,12 +68,21 @@ export default function AddSiteModal({ open, onClose }: AddSiteModalProps) {
     });
   };
 
-  function generateRegexPattern(site: string): string {
+  function getBaseURL(url: string): string {
+    try {
+        const parsedURL = new URL(url);
+        return `${parsedURL.protocol}//${parsedURL.hostname}`;
+    } catch (e) {
+        console.error('Invalid URL', e);
+        return "";
+    }
+  }
+
+  const generateRegexPattern = (site: string): string => {
     // Escape special characters for regex
     const escapedSite = site.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
     return `^${escapedSite}.*$`;
-  }
-
+  };
   return (
     <div>
       <Modal
@@ -124,16 +128,17 @@ export default function AddSiteModal({ open, onClose }: AddSiteModalProps) {
 
           <StyledButton
             variant="contained"
-            onClick={() =>
-              addNewSite(url, {
+            onClick={() => {
+              const baseURL = getBaseURL(url);
+              addNewSite(baseURL, {
                 message,
                 time: timeLimit,
                 blocked: false,
                 unlocks: 0,
                 totalVisits: 0,
-                pattern: generateRegexPattern(url), 
-              })
-            }
+                pattern: generateRegexPattern(baseURL),
+              });
+            }}
             sx={{ mt: 2 }}
           >
             Save

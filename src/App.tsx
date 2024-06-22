@@ -10,6 +10,7 @@ interface SiteMetaData {
   blocked: boolean;
   unlocks: number;
   totalVisits: number;
+  totalVisitsWhenBlocked: number; 
   unlockMsgs?: string[];
   startTime?: number; // Time when the user started the session
   accumulatedTime?: number; // Accumulated time spent on the site in seconds
@@ -18,7 +19,7 @@ interface SiteMetaData {
 
 export default function App() {
 
-  const [totalVisits, setTotalVisits] = useState(0);
+  const [totalVisitsWhenBlocked, setTotalVisitsWhenBlocked] = useState(0);
 
   const openSettingsPage = () => {
     chrome.tabs.create({ url: chrome.runtime.getURL("settings.html") });
@@ -32,20 +33,19 @@ export default function App() {
 
       // Calculate the total visits
       for (const site in sites) {
-        if (sites[site].totalVisits) {
-          total += sites[site].totalVisits;
+        if (sites[site].totalVisitsWhenBlocked) {
+          total += sites[site].totalVisitsWhenBlocked;
         }
       }
-
       // Update the state with the total visits
-      setTotalVisits(total);
+      setTotalVisitsWhenBlocked(total);
     });
   }, []); 
 
   return (
     <>
       <Box sx={{ pl: 3, width: 350, height: 200 }}>
-        {/* Title & Message */}
+
         <Stack sx={{ pt: 3 }}>
           <Typography variant="h4">Intentio</Typography>
           <Typography variant="h6" color="grey">
@@ -55,7 +55,7 @@ export default function App() {
 
         <Box sx={{ pt: 2, pb: 2 }}>
           <Typography variant="body1">
-            You've said no {totalVisits} times so far. Keep going 🚀
+            You've said no {totalVisitsWhenBlocked} times so far. Keep going 🚀
           </Typography>
           <StyledButton
             onClick={openSettingsPage}

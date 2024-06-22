@@ -21,11 +21,15 @@ const style = {
 
 interface SiteMetaData {
   message: string;
-  time: number;
+  time: number; // Total allowed time in seconds 
   blocked: boolean;
   unlocks: number;
   totalVisits: number;
+  totalVisitsWhenBlocked: number; 
   unlockMsgs?: string[];
+  startTime?: number; // Time when the user started the session
+  accumulatedTime?: number; // Accumulated time spent on the site in seconds
+  pattern?: string; // Regex pattern for the site
 }
 
 interface StorageData {
@@ -52,10 +56,10 @@ export default function UnlockModal({
   const handleSaveButtonPressed: React.MouseEventHandler<
     HTMLButtonElement
   > = async (event) => {
-    // Update unlock count
     await updateUnlockCount(siteUrl);
-    // Save unlock message
     await saveUnlockMsgs(siteUrl);
+    await unblockSite(siteUrl); 
+    window.location.href = siteUrl;
   };
 
   function updateUnlockCount(site: string): Promise<void> {
@@ -63,7 +67,7 @@ export default function UnlockModal({
       chrome.storage.local.get(
         "sites",
         (data: { sites?: { [key: string]: SiteMetaData } }) => {
-          // Retrieve existing sites or initialize as empty object
+
           const sites = data.sites || {};
 
           const typedSites = sites as { [key: string]: SiteMetaData };
@@ -73,8 +77,6 @@ export default function UnlockModal({
           }
           // Save the updated sites data back to storage
           chrome.storage.local.set({ sites: typedSites }, () => {
-            console.log("Unlock count updated for site:", site);
-            console.log("Unlock count:", typedSites[site].unlocks);
             resolve();
           });
         }
@@ -87,7 +89,6 @@ export default function UnlockModal({
       chrome.storage.local.get(
         "sites",
         (data: { sites?: { [key: string]: SiteMetaData } }) => {
-          // Retrieve existing sites or initialize as empty object
           const sites = data.sites || {};
 
           const typedSites = sites as { [key: string]: SiteMetaData };
@@ -102,8 +103,32 @@ export default function UnlockModal({
           }
           // Save the updated sites data back to storage
           chrome.storage.local.set({ sites: typedSites }, () => {
-            console.log("Unlock Message updated for site:", site);
-            console.log("Unlock Message:", typedSites[site].unlockMsgs);
+            resolve();
+          });
+        }
+      );
+    });
+  }
+
+  function unblockSite(site: string): Promise<void> {
+    return new Promise((resolve, reject) => {
+      chrome.storage.local.get(
+        "sites",
+        (data: { sites?: { [key: string]: SiteMetaData } }) => {
+
+          const sites = data.sites || {};
+
+          const typedSites = sites as { [key: string]: SiteMetaData };
+
+          if (typedSites[site]) {
+            typedSites[site].blocked = false;
+          } else {
+            // Handle case when the site does not exist
+            return reject(new Error(`Site ${site} not found in storage`));
+          }
+
+          // Save the updated sites data back to storage
+          chrome.storage.local.set({ sites: typedSites }, () => {
             resolve();
           });
         }
