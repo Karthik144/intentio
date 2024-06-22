@@ -37,8 +37,7 @@ module.exports = {
                 { from: "manifest.json", to: "../manifest.json" },
                 { from: "public/settings.html", to: "../settings.html" }, 
                 { from: "public/blocked.html", to: "../blocked.html" }, 
-
-
+                { from: "public/icon.png", to: "../icon.png" }, 
             ],
         }),
         ...getHtmlPlugins(["index", "settings", "blocked"]), 
